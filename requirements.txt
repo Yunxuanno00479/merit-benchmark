@@ -1,0 +1,25 @@
+# MERIT benchmark requirements
+# Tested with Python 3.10
+
+# Core data processing
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=12.0.0
+pytz
+
+# Machine learning
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+
+# NLP models (sentiment scoring)
+torch>=2.0.0
+transformers>=4.35.0
+
+# Change point detection
+ruptures>=1.1.7
+
+# Statistical utilities
+scipy>=1.11.0
+
+# Progress bars
+tqdm>=4.65.0
