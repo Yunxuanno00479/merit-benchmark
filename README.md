@@ -1,3 +1,8 @@
+---
+title: 'MERIT: A Sentence-Level Benchmark for Earnings Call Language Trajectories and Sub-Minute Market Microstructure'
+
+---
+
 # MERIT: A Sentence-Level Benchmark for Earnings Call Language Trajectories and Sub-Minute Market Microstructure
 
 MERIT (**M**icrostructure and **E**arnings call **R**eal-time **I**nformation **T**rajectories) is a benchmark that links sentence-level earnings-call language to sub-minute market microstructure responses. It pairs FinBERT-tone sentiment and SubjECTive-QA scores with tick-level NBBO panels across 1,118 earnings call events from 267 S&P 500 firms (2021–2023).
@@ -6,7 +11,7 @@ MERIT (**M**icrostructure and **E**arnings call **R**eal-time **I**nformation **
 
 ## Repository Structure
 
-```
+```text
 merit-benchmark/
 ├── README.md
 ├── requirements.txt
@@ -17,12 +22,34 @@ merit-benchmark/
 │   │   ├── build_benchmark_dataset.py # Build final benchmark CSVs from Layer 2 + sentiment
 │   │   └── split_benchmark_dataset.py # Apply session filter and train/test split
 │   └── sentiment/
-│       ├── compute_changepoint.py        # PELT + AIC change point detection
-│       ├── compute_finbert_tone.py       # FinBERT-tone sentence scoring
-│       ├── compute_subjective_qa.py      # SubjECTive-QA pair scoring
+│       ├── compute_changepoint.py         # PELT + AIC change point detection
+│       ├── compute_finbert_tone.py        # FinBERT-tone sentence scoring
+│       ├── compute_subjective_qa.py       # SubjECTive-QA pair scoring
 │       └── compute_trajectory_features.py # Extended trajectory feature computation (exploratory)
-└── experiment/
-    └── run_baselines_b0b1b2.py        # Main baseline experiments (Inst. / CL / CT regimes)
+├── experiment/
+│   └── run_baselines_b0b1b2.py        # Main baseline experiments (Inst. / CL / CT regimes)
+└── text_embedding/
+    ├── README.md                                      # Overview of the appendix text-embedding baseline
+    ├── docs/
+    │   ├── text_embedding_sentiment_preprocessing_README.md   # Notes for FinBERT, SubjECTive-QA, and change-point preprocessing
+    │   └── text_embedding_transcript_preprocessing_README.md  # Notes for parsing raw transcripts into text-preserving panels
+    ├── scripts/
+    │   ├── run_text_embedding_absq75_lr_allwindows.sh         # Run final MPNet/OpenAI embedding + LR experiments for all horizons
+    │   ├── run_text_embedding_build_benchmark_dataset.sh      # Build benchmark CSVs while preserving raw text fields
+    │   └── run_text_embedding_preprocessing.sh                # Run transcript parsing and sentiment preprocessing pipeline
+    ├── src/
+    │   ├── text_embedding_b4_pipeline.py                      # Main B4 pipeline: embed text, cache vectors, train classifiers, report metrics
+    │   ├── text_embedding_build_benchmark_dataset.py          # Join quote-window features with sentiment panels and raw text fields
+    │   └── text_embedding_split_benchmark_dataset.py          # Apply session filtering and time-based train/test split
+    ├── src_preprocessing/
+    │   ├── text_embedding_parse_transcript.py                 # Parse transcript JSONL files into presentation, QA-pair, and QA-sentence panels
+    │   ├── text_embedding_compute_finbert_tone.py             # Compute FinBERT-tone scores for presentation and QA-sentence text
+    │   ├── text_embedding_compute_subjective_qa.py            # Compute six-dimensional SubjECTive-QA scores for QA pairs
+    │   └── text_embedding_compute_changepoint.py              # Detect FinBERT-tone regime shifts using PELT with AIC penalty
+    └── reference_upstream/
+        ├── run_text_embedding_build_benchmark_dataset_upstream.sh # Original upstream runner for benchmark construction
+        ├── text_embedding_build_benchmark_dataset_upstream.py     # Upstream version of benchmark construction script
+        └── text_embedding_split_benchmark_dataset_upstream.py     # Upstream version of benchmark split script
 ```
 
 ---
@@ -31,7 +58,7 @@ merit-benchmark/
 
 The benchmark data is available on Hugging Face Datasets:
 
-```
+```text
 https://anonymous-hf.up.railway.app/a/qohkf1cu3j5t/
 ```
 
@@ -51,7 +78,9 @@ The dataset comprises three components:
 
 The full pipeline proceeds in four stages. Stages 1–2 require access to proprietary data sources (NYSE TAQ and a commercial transcript provider) and are provided for reproducibility documentation only. Stages 3–4 operate on the released benchmark data.
 
-```
+Appendix experiments, including the text-embedding baseline, are provided in `text_embedding/` and are not required for reproducing the main MERIT benchmark pipeline.
+
+```text
 Stage 1: Sentiment scoring
     compute_finbert_tone.py       →  sentiment_panel/pre/
     compute_subjective_qa.py      →  sentiment_panel/qa_score/
@@ -97,7 +126,7 @@ ds = load_dataset('[ANONYMOUS]/MERIT')
 
 Or download manually from the Hugging Face repository and place files under `data/`:
 
-```
+```text
 data/
 ├── benchmark/
 │   ├── benchmark_pre_30s.csv
@@ -164,9 +193,38 @@ For the Q&A segment, the analogous features use SubjECTive-QA positive-class pro
 
 ---
 
+## Appendix: Text Embedding Baseline
+
+The `text_embedding/` directory contains the implementation of the appendix text-embedding baseline. This experiment evaluates whether generic semantic representations of earnings-call text can directly predict subsequent sub-minute market microstructure responses.
+
+The baseline constructs two text views:
+
+| View | Description |
+|---|---|
+| Presentation text | The management presentation sentence associated with the anchor |
+| Question-answer text | The analyst question concatenated with the corresponding management answer |
+
+For each view and horizon, the text is embedded using MPNet and OpenAI's small embedding model with 512 output dimensions. A logistic regression classifier is then trained on the resulting embeddings under the same train/test split and absolute Q75 extreme-event labeling protocol used in the main benchmark.
+
+To run the appendix experiment:
+
+```bash
+bash text_embedding/scripts/run_text_embedding_absq75_lr_allwindows.sh
+```
+
+To use OpenAI embeddings, set an API key before running:
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+See `text_embedding/README.md` for the full script layout and preprocessing details. Raw transcript access is required only if users want to rerun the text-preserving preprocessing pipeline from scratch.
+
+---
+
 ## Evaluation Protocol
 
-- **Targets:** ΔBAS (bid–ask spread), ΔQRF (quote revision frequency), ΔQVol (quote volatility)
+- **Targets:** ΔBAS (bid-ask spread), ΔQRF (quote revision frequency), ΔQVol (quote volatility)
 - **Label:** `Y = 1[|Δmetric| > τ₇₅]`, where τ₇₅ is the 75th percentile of the pooled absolute delta distribution computed on the training split only
 - **Positive-class rate:** approximately 20–25% depending on target and horizon
 - **Primary metric:** Balanced Accuracy (BAcc); secondary: AUC-ROC
@@ -185,7 +243,7 @@ For the Q&A segment, the analogous features use SubjECTive-QA positive-class pro
   title   = {{MERIT}: A Sentence-Level Benchmark for Earnings Call Language
              Trajectories and Sub-Minute Market Microstructure},
   author  = {Anonymous},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  booktitle = {},
   year    = {2026},
   note    = {Datasets and Benchmarks Track}
 }
