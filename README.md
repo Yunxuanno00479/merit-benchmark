@@ -32,7 +32,7 @@ merit-benchmark/
 The benchmark data is available on Hugging Face Datasets:
 
 ```
-https://huggingface.co/datasets/[ANONYMOUS]/MERIT
+https://anonymous-hf.up.railway.app/a/qohkf1cu3j5t/
 ```
 
 The dataset comprises three components:
